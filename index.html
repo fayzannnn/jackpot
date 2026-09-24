@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jackpot — Crack the Number</title>
+<style>
+  :root{
+    --bg:#0b1022;
+    --bg2:#141b36;
+    --gold:#e8b84b;
+    --gold-dim:#7a5f22;
+    --green:#2fae6b;
+    --green-dim:#1c6b42;
+    --grey:#2a2f42;
+    --grey-text:#565c76;
+    --text:#f2eddf;
+    --danger:#c8543f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:radial-gradient(ellipse at top, var(--bg2), var(--bg) 70%);
+    color:var(--text);
+    font-family:'Georgia', 'Times New Roman', serif;
+    min-height:100%;
+    padding:env(safe-area-inset-top,0px) 20px env(safe-area-inset-bottom,0px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  header{
+    text-align:center;
+    padding:28px 0 10px;
+    max-width:640px;
+  }
+  h1{
+    font-size:clamp(1.6rem, 4vw, 2.3rem);
+    letter-spacing:0.02em;
+    margin:0 0 6px;
+    color:var(--gold);
+    font-weight:700;
+  }
+  p.tagline{
+    margin:0;
+    font-family:Arial, sans-serif;
+    font-size:0.95rem;
+    color:#b9b3a0;
+  }
+  .controls{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    margin:18px 0;
+    font-family:Arial, sans-serif;
+  }
+  select, button.action{
+    background:var(--bg2);
+    color:var(--text);
+    border:1px solid var(--gold-dim);
+    border-radius:6px;
+    padding:8px 14px;
+    font-size:0.95rem;
+    cursor:pointer;
+  }
+  select:focus, button.action:focus, button.num:focus{
+    outline:2px solid var(--gold);
+    outline-offset:2px;
+  }
+  button.action:hover{ border-color:var(--gold); }
+  .status{
+    font-family:Arial, sans-serif;
+    font-size:1rem;
+    color:var(--gold);
+    min-height:1.4em;
+    margin-bottom:6px;
+    text-align:center;
+  }
+  .attempts{
+    font-family:Arial, sans-serif;
+    font-size:0.9rem;
+    color:#b9b3a0;
+    margin-bottom:16px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(10, minmax(28px, 44px));
+    gap:6px;
+    margin:0 0 30px;
+  }
+  button.num{
+    aspect-ratio:1;
+    border:none;
+    border-radius:5px;
+    font-family:Arial, sans-serif;
+    font-size:0.8rem;
+    font-weight:600;
+    color:#08160f;
+    background:var(--green);
+    cursor:pointer;
+    transition:transform 0.08s ease, background 0.25s ease;
+  }
+  button.num:hover:not(:disabled){ transform:translateY(-2px); background:var(--gold); }
+  button.num:disabled{
+    background:var(--grey);
+    color:var(--grey-text);
+    cursor:default;
+    transform:none;
+  }
+  button.num.picked{
+    background:var(--gold);
+    color:#2a1c00;
+  }
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(5,7,18,0.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:10;
+  }
+  .overlay.show{ display:flex; }
+  .card{
+    background:linear-gradient(180deg, #1a1030, #0b1022);
+    border:1px solid var(--gold);
+    border-radius:14px;
+    padding:40px 32px;
+    text-align:center;
+    max-width:420px;
+    box-shadow:0 0 60px rgba(232,184,75,0.25);
+  }
+  .card .amount{
+    font-size:clamp(2.2rem, 8vw, 3.2rem);
+    color:var(--gold);
+    margin:6px 0 14px;
+    font-weight:700;
+  }
+  .card p{
+    font-family:Arial, sans-serif;
+    color:#cfc9b8;
+    line-height:1.5;
+    margin:0 0 22px;
+  }
+  .card.lose{ border-color:var(--danger); box-shadow:0 0 60px rgba(200,84,63,0.25); }
+  .card.lose .amount{ color:var(--danger); }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f5f1e6;
+      --bg2:#fffdf7;
+      --text:#221a0d;
+      --grey:#d8d3c2;
+      --grey-text:#8a8470;
+    }
+    button.num{ color:#08160f; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Crack the Jackpot</h1>
+  <p class="tagline">Pick a number from 1 to 100. Every wrong guess narrows the field.</p>
+</header>
+
+<div class="controls">
+  <label for="difficulty" style="font-family:Arial, sans-serif; font-size:0.9rem; color:#b9b3a0;">Difficulty</label>
+  <select id="difficulty">
+    <option value="15">Easy — 15 attempts</option>
+    <option value="10" selected>Medium — 10 attempts</option>
+    <option value="5">Hard — 5 attempts</option>
+  </select>
+  <button class="action" id="newGame">New Game</button>
+</div>
+
+<div class="status" id="status">Choose a difficulty and make your first guess.</div>
+<div class="attempts" id="attemptsLeft"></div>
+
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="overlay">
+  <div class="card" id="resultCard">
+    <div id="resultTitle" style="font-family:Arial, sans-serif; letter-spacing:0.04em; color:#cfc9b8;"></div>
+    <div class="amount" id="resultAmount"></div>
+    <p id="resultMsg"></p>
+    <button class="action" id="playAgain">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const gridEl = document.getElementById('grid');
+  const statusEl = document.getElementById('status');
+  const attemptsEl = document.getElementById('attemptsLeft');
+  const difficultyEl = document.getElementById('difficulty');
+  const newGameBtn = document.getElementById('newGame');
+  const overlay = document.getElementById('overlay');
+  const resultCard = document.getElementById('resultCard');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultAmount = document.getElementById('resultAmount');
+  const resultMsg = document.getElementById('resultMsg');
+  document.getElementById('playAgain').addEventListener('click', startGame);
+
+  let jackpot, attemptsLeft, maxAttempts, over, buttons = [];
+
+  function buildGrid(){
+    gridEl.innerHTML = '';
+    buttons = [];
+    for (let n = 1; n <= 100; n++){
+      const b = document.createElement('button');
+      b.className = 'num';
+      b.textContent = n;
+      b.addEventListener('click', () => handleGuess(n, b));
+      gridEl.appendChild(b);
+      buttons.push(b);
+    }
+  }
+
+  function startGame(){
+    jackpot = Math.floor(Math.random() * 100) + 1;
+    maxAttempts = Number(difficultyEl.value);
+    attemptsLeft = maxAttempts;
+    over = false;
+    overlay.classList.remove('show');
+    resultCard.classList.remove('lose');
+    buildGrid();
+    statusEl.textContent = 'Pick a number to begin.';
+    updateAttempts();
+  }
+
+  function updateAttempts(){
+    attemptsEl.textContent = `${attemptsLeft} of ${maxAttempts} attempts left`;
+  }
+
+  function handleGuess(n, btn){
+    if (over || btn.disabled) return;
+
+    btn.classList.add('picked');
+    attemptsLeft--;
+
+    if (n === jackpot){
+      win();
+      return;
+    }
+
+    if (n > jackpot){
+      statusEl.textContent = `${n} is too high — jackpot is less than ${n}.`;
+      buttons.forEach(b => {
+        const v = Number(b.textContent);
+        if (v >= n) { b.disabled = true; }
+      });
+    } else {
+      statusEl.textContent = `${n} is too low — jackpot is greater than ${n}.`;
+      buttons.forEach(b => {
+        const v = Number(b.textContent);
+        if (v <= n) { b.disabled = true; }
+      });
+    }
+
+    btn.disabled = true;
+    updateAttempts();
+
+    if (attemptsLeft <= 0){
+      lose();
+    }
+  }
+
+  function win(){
+    over = true;
+    buttons.forEach(b => b.disabled = true);
+    resultCard.classList.remove('lose');
+    resultTitle.textContent = 'KAUN BANEGA CROREPATI';
+    resultAmount.textContent = '₹7,00,00,000';
+    resultMsg.textContent = `Correct! The jackpot number was ${jackpot}. You called it — that's a 7 crore win.`;
+    overlay.classList.add('show');
+  }
+
+  function lose(){
+    over = true;
+    buttons.forEach(b => b.disabled = true);
+    resultCard.classList.add('lose');
+    resultTitle.textContent = 'OUT OF ATTEMPTS';
+    resultAmount.textContent = jackpot;
+    resultMsg.textContent = `No attempts left. The jackpot number was ${jackpot}.`;
+    overlay.classList.add('show');
+  }
+
+  difficultyEl.addEventListener('change', startGame);
+  newGameBtn.addEventListener('click', startGame);
+
+  startGame();
+})();
+</script>
+
+</body>
+</html>
